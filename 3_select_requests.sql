@@ -98,23 +98,27 @@ SELECT allias
 /*  Задание 4(необязательное)
 Написать SELECT-запросы, которые выведут информацию согласно инструкциям ниже.*/
 
--- Названия альбомов, в которых присутствуют исполнители более чем одного жанра.
-  SELECT album_name ,count(id_genre_sg)  
-    FROM albums a 
-    JOIN singer_album sa 
-      ON a.album_id = sa.id_album_sa 
-    JOIN singer_genre sg 
-      ON sa.id_singer_sa  = sg.id_singer_sg 
-GROUP BY album_name 
-  HAVING count(id_genre_sg) > 1;
+-- Названия альбомов, в которых присутствуют исполнители более чем одного жанра (ПЕРЕДЕЛАЛ).
+/*(Во вложенном запросе я нахожу id исполнителей, которые поют болбше чем в одном жанре,
+ т.е. тех у которых количество (count) жанров в табл singer_genre sg больше одного).
+Далее я сравниваю альбомы (через id их исполнителей) с id из вложенного запроса.
+И вывожу их через DISTINCT, что бы они не повторялись*/
+   
+SELECT DISTINCT album_name
+          FROM albums a 
+          JOIN singer_album sa 
+            ON a.album_id = sa.id_album_sa 
+         WHERE  id_singer_sa IN (SELECT id_singer_sg 
+                                   FROM singer_genre sg 
+                               GROUP BY id_singer_sg 
+                                 HAVING count(id_genre_sg) != 1);
 
--- Наименования треков, которые не входят в сборники.
-   SELECT track_name 
-     FROM tracks t 
-LEFT JOIN collections_tracks ct 
-       ON t.track_id = ct.id_track_ct  
- GROUP BY track_name 
-   HAVING count(id_collection_ct) = 0;
+-- Наименования треков, которые не входят в сборники (ИСПРАВИЛ).
+   SELECT track_name , id_collection_ct
+     FROM tracks t
+LEFT JOIN collections_tracks ct
+       ON t.track_id = ct.id_track_ct
+    WHERE id_collection_ct IS  NULL ;  
 
 
 -- исполнитель или исполнители, написавшие самый короткий по продолжительности трек, — теоретически таких треков может быть несколько.
@@ -128,15 +132,17 @@ SELECT DISTINCT allias
                            FROM tracks)
 
 
-/* Названия альбомов, содержащих наименьшее количество треков.
-    НЕ РЕШЕНО!!!!!    */
+--  Названия альбомов, содержащих наименьшее количество треков (ИСПРАВИЛ).
 
-SELECT album_name , count(track_name) AS count_traks_in_album  
-FROM tracks t
-JOIN albums a 
-ON t.from_album  = a.album_id 
-GROUP BY album_name  
-
-/*  Я сформировал таблицу по названиям альбомов и количеству треков в них.
-Но как выбрать альбом с минимальным количеством треков???  Как применить 
-функцию MIN() к столбцу   COUNT(track_name) ????  */
+  SELECT album_name
+    FROM tracks t
+    JOIN albums a 
+      ON t.from_album  = a.album_id 
+GROUP BY album_id
+  HAVING count(track_name) = (SELECT count(track_name)  
+                                FROM tracks t
+                                JOIN albums a 
+                                  ON t.from_album  = a.album_id 
+                            GROUP BY album_id
+                            ORDER BY count(track_name)
+                               LIMIT 1);
